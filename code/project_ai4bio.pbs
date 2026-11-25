@@ -1,0 +1,42 @@
+#!/bin/bash
+#PBS -N struct2sl
+#PBS -q pub_gpu
+#PBS -l nodes=1:public:v100:ppn=8:gpus=1
+#PBS -l mem=64gb
+#PBS -l walltime=30:00:00
+#PBS -S /bin/bash
+#PBS -j oe
+
+source /etc/profile
+set -euo pipefail
+: "${PBS_JOBID:?Submit with qsub}"
+cd "${PROJECT_DIR:-${PBS_O_WORKDIR:-/home_data/home/sist/weifs2024/Codes/fsz/ai4bio/code}}"
+source environment/runtime.sh
+
+STAGE=${STAGE:-smoke}
+case "$STAGE" in
+    smoke|train) ;;
+    *) echo "STAGE must be smoke or train" >&2; exit 2 ;;
+esac
+job_dir="outputs/$STAGE/$PBS_JOBID"
+mkdir -p "$job_dir"
+exec > >(tee "$job_dir/job.log") 2>&1
+
+if [[ -z ${CUDA_VISIBLE_DEVICES:-} ]]; then
+    : "${PBS_GPUFILE:?Missing PBS GPU assignment}"
+    CUDA_VISIBLE_DEVICES=$(sed -n 's#.*-gpu/\([0-9][0-9]*\)$#\1#p' "$PBS_GPUFILE" | sort -u | paste -sd, -)
+fi
+[[ -n "$CUDA_VISIBLE_DEVICES" && "$CUDA_VISIBLE_DEVICES" != *,* && "$CUDA_VISIBLE_DEVICES" != -1 ]] || {
+    echo "Expected one assigned GPU" >&2
+    exit 1
+}
+export CUDA_VISIBLE_DEVICES USE_GPU=1 OMP_NUM_THREADS=8
+export SINGULARITYENV_PBS_JOBID="$PBS_JOBID" APPTAINERENV_PBS_JOBID="$PBS_JOBID"
+export SINGULARITYENV_MPLCONFIGDIR="/mnt/code/$job_dir/matplotlib"
+export APPTAINERENV_MPLCONFIGDIR="/mnt/code/$job_dir/matplotlib"
+nvidia-smi > "$job_dir/nvidia-smi.txt"
+args=(--output "$job_dir/results" --device cuda)
+if [[ "$STAGE" == smoke ]]; then
+    args+=(--smoke)
+fi
+container python -u src/experiment.py "${args[@]}"
