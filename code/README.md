@@ -24,6 +24,14 @@ USE_GPU=0 container python src/prepare.py
 qsub -v STAGE=smoke project_ai4bio.pbs
 ```
 
+镜像构建临时文件和 OCI 缓存默认位于 `environment/.build-tmp/` 与 `environment/.build-cache/`。如果项目盘配额不足，把两者指定到空间充足的可写目录。`df -h` 显示文件系统剩余空间，账户配额需以集群查询结果为准。
+
+```bash
+STRUCT2SL_BUILD_TMP=/path/to/scratch/struct2sl-tmp \
+STRUCT2SL_BUILD_CACHE=/path/to/scratch/struct2sl-cache \
+bash environment/setup.sh
+```
+
 检查 `outputs/smoke/<PBS_JOBID>/results/comparison/summary.csv` 生成后，再提交正式实验。
 
 ```bash

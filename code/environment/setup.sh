@@ -6,7 +6,20 @@ export USE_GPU=0
 exec 9>environment/.setup.lock
 flock 9
 if [[ ! -s "$IMAGE" ]]; then
-    "$RUNTIME" pull "$IMAGE" docker://pytorch/pytorch:2.3.1-cuda11.8-cudnn8-runtime
+    (
+        build_tmp=${STRUCT2SL_BUILD_TMP:-"$CODE_DIR/environment/.build-tmp"}
+        build_cache=${STRUCT2SL_BUILD_CACHE:-"$CODE_DIR/environment/.build-cache"}
+        mkdir -p "$build_tmp" "$build_cache"
+        build_tmp=$(cd "$build_tmp" && pwd -P)
+        build_cache=$(cd "$build_cache" && pwd -P)
+        export TMPDIR="$build_tmp" SINGULARITY_TMPDIR="$build_tmp" APPTAINER_TMPDIR="$build_tmp"
+        export SINGULARITY_CACHEDIR="$build_cache" APPTAINER_CACHEDIR="$build_cache"
+        df -h "$build_tmp" "$build_cache" "$(dirname "$IMAGE")"
+        staging=$(mktemp -d "$(dirname "$IMAGE")/.sif-build.XXXXXXXX")
+        trap 'rm -rf -- "$staging"' EXIT
+        "$RUNTIME" pull "$staging/struct2sl.sif" docker://pytorch/pytorch:2.3.1-cuda11.8-cudnn8-runtime
+        mv -- "$staging/struct2sl.sif" "$IMAGE"
+    )
 fi
 if [[ ! -d environment/upstream/.git ]]; then
     git clone https://github.com/hyr-hit/Struct2SL environment/upstream
