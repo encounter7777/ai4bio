@@ -7,7 +7,6 @@ import math
 import os
 import pickle
 import random
-import subprocess
 import tempfile
 from pathlib import Path
 from zipfile import ZipFile
@@ -89,10 +88,13 @@ def write_csv(path, header, rows):
 def prepare(raw, out, upstream):
     if out.exists():
         raise FileExistsError(f"Snapshot already exists: {out}. Reuse it for both variants.")
-    revision = subprocess.check_output(["git", "-C", str(upstream), "rev-parse", "HEAD"],
-                                       text=True).strip()
-    script = upstream / "Struct2SL.py"
-    if subprocess.check_output(["git", "-C", str(upstream), "show", "HEAD:Struct2SL.py"]) != script.read_bytes():
+    revision_file = upstream.parent / "upstream-revision.txt"
+    hash_file = upstream.parent / "upstream-script.sha256"
+    if not revision_file.is_file() or not hash_file.is_file():
+        raise FileNotFoundError("Missing upstream metadata. Run bash environment/setup.sh first.")
+    revision = revision_file.read_text().strip()
+    script_hash = checksum(upstream / "Struct2SL.py")
+    if script_hash != hash_file.read_text().strip():
         raise ValueError("Upstream training script differs from its recorded commit")
     features = load_features(raw)
     genes = sorted(set.intersection(*(set(group) for group in features.values())))
@@ -158,7 +160,7 @@ def prepare(raw, out, upstream):
              "sequence_features.npz", "ppi_features.npz", "filter.py", "Human_SL_f.csv",
              "gene_sl_gene.tsv"]
     manifest = {
-        "upstream": SOURCE, "revision": revision, "upstream_script_sha256": checksum(script),
+        "upstream": SOURCE, "revision": revision, "upstream_script_sha256": script_hash,
         "data_source": DATA, "download_date": None, "sha256": {name: checksum(raw / name) for name in names},
         "tables": {"all_sl": observed_audit, "filtered_sl": positive_audit, "non_sl": negative_audit},
         "filter": "Human_SL_ff.csv (TSV): exclude sources containing Computational Prediction; "

@@ -43,7 +43,7 @@ PBS 每次申请一张 V100、8 核 CPU、64 GB 内存及 30 小时。每个作�
 ## 回传
 
 - `../data/processed/struct2sl/` 下的清单、样本表、划分表、冲突表和特征清单。完整复现可加带 `gene_features.npz`。
-- `environment/upstream-revision.txt`、`environment/image.sha256`、`environment/resolved-packages.txt`。
+- `environment/upstream-revision.txt`、`environment/upstream-script.sha256`、`environment/image.sha256`、`environment/resolved-packages.txt`。
 - `outputs/train/<PBS_JOBID>/` 整个目录，含硬件记录、运行清单、十折检查点、缩放参数、训练日志、逐样本预测及比较结果。
 
 `comparison/` 汇总 AUROC、sklearn AP、F1@0.5、测试集正负计数、逐折完整减消融差值以及均值和标准差（ddof=0）。五个折模型共用同一个外层测试集，基因可跨划分重复出现。论文 Table 3 的 Struct2SL 分数为 AUROC 0.9812、AUPR 0.9798、F1 0.9399。撰写报告时应结合冲突排除、负样本去重、折内缩放和验证集选模解释协议差异。 [Huang 等，Table 3](https://pmc.ncbi.nlm.nih.gov/articles/PMC12800370/#tbl3)
